@@ -1,2 +1,2 @@
 # Bullet-Hell-Game-in-C
-Bullet hell game in C using win32 API
+Bullet hell game in C using Win32 API
