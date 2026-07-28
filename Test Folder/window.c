@@ -28,14 +28,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR nCmdLine, 
         return -1;
     }
 
-    HWND hwnd_MainWindow = CreateWindow(
+    HWND hwnd_MainWindow = CreateWindowEx(
+        0,  
         MAIN_WINDOW_CLASSNAME,
         L"Bullet Hell",
         WS_VISIBLE | WS_OVERLAPPEDWINDOW,
         100, 100,
         500, 500,
         NULL,
-        (HMENU)HMENU_MAINWINDOW,
+        NULL,
         hInstance,
         NULL
     );
