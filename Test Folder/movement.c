@@ -11,9 +11,12 @@
 #define HMENU_MAINWINDOW 1
 
 //Global variables
-uint32_t CURSOR_SIZE_X = 3;
-uint32_t CURSOR_SIZE_Y = 3;
+uint32_t CHARACTER_SIZE_X = 7;
+uint32_t CHARACTER_SIZE_Y = 7;
 bool KEYBOARD[256] = {0};
+RECT CHARACTER_RECT;
+RECT PLAY_AREA;
+bool MOVED = false;
 
 //Structs
 struct position {
@@ -71,14 +74,29 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR nCmdLine, 
             DispatchMessage(&msg);
         }
 
-        if (KEYBOARD[VK_RIGHT] || KEYBOARD['D']) character.x++;
-        if (KEYBOARD[VK_LEFT] || KEYBOARD['A']) character.x--;
-        if (KEYBOARD[VK_UP] || KEYBOARD['W']) character.y--;
-        if (KEYBOARD[VK_DOWN] || KEYBOARD['S']) character.y++;
+        int size_offset_x = CHARACTER_SIZE_X / 2;
+        int size_offset_y = CHARACTER_SIZE_Y / 2;
+        if (KEYBOARD[VK_RIGHT] && ((int)character.x + 1 + size_offset_x) <= PLAY_AREA.right) {
+           character.x++; 
+           MOVED = true;
+        }  
+        if (KEYBOARD[VK_LEFT]  && ((int)character.x - 1 - size_offset_x) >= PLAY_AREA.left) {
+            character.x--;
+            MOVED = true;
+        } 
+        if (KEYBOARD[VK_DOWN]  && ((int)character.y + 1 + size_offset_y) <= PLAY_AREA.bottom) {
+            character.y++;
+            MOVED = true;
+        } 
+        if (KEYBOARD[VK_UP]    && ((int)character.y - 1 - size_offset_y) >= PLAY_AREA.top) {
+            character.y--;
+            MOVED = true;
+        }   
 
-        printf("(%d, %d)", character.x, character.y);
-        InvalidateRect(hwnd_MainWindow, NULL, FALSE);
+        // printf("(%d, %d)", character.x, character.y);
+        InvalidateRect(hwnd_MainWindow, &CHARACTER_RECT, FALSE);
         UpdateWindow(hwnd_MainWindow);
+        Sleep(1);
     }
 
     return 0;
@@ -96,8 +114,12 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
         case WM_PAINT: {
             PAINTSTRUCT paint_info;
             HDC device_context = BeginPaint(hWnd, &paint_info);
-            // DrawBackground(hWnd, device_context, paint_info);
+            if (MOVED) {
+                DrawBackground(hWnd, device_context, paint_info);
+                MOVED = false;
+            }
             DrawCharacter(hWnd, device_context, paint_info);
+            EndPaint(hWnd, &paint_info);
         } break;
 
         case WM_SYSKEYUP:
@@ -133,44 +155,40 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 
 void DrawBackground(HWND hWnd, HDC device_context, PAINTSTRUCT paint_info) 
 {
-    RECT bg;
-
-    GetClientRect(hWnd, &bg);
-
-    if (bg.bottom == 0) {
-        return;
-    }
-    
-    //Draw BG
-    for (int i = 0; i < bg.right; i++) {
-        for (int j = 0; j < bg.bottom; j++) {
-            SetPixel(device_context, i, j, RGB(0, 0, 0));
-        }
-    }
+    Rectangle(device_context, CHARACTER_RECT.left - 1, CHARACTER_RECT.top - 1, CHARACTER_RECT.right + 1, CHARACTER_RECT.bottom + 1);
 }
 
 void InitCharacter(HWND hWnd)
 {
-    RECT play_area;
-    GetClientRect(hWnd, &play_area);
+    GetClientRect(hWnd, &PLAY_AREA);
+    character.x = PLAY_AREA.right / 2;
+    character.y = PLAY_AREA.bottom / 2;
 
-    character.x = play_area.right / 2;
-    character.y = play_area.bottom / 2;
-
-    // printf("cursorx: %d\ncursory: %d\n", cursor.x, cursor.y);
-    // printf("left: %d\nright: %d\n", play_area.left, play_area.right);
-    // printf("top: %d\nbottom: %d\n", play_area.top, play_area.bottom);
+    // printf("cursorx: %d\ncursory: %d\n", character.x, character.y);
+    // printf("left: %d\nright: %d\n", PLAY_AREA.left, PLAY_AREA.right);
+    // printf("top: %d\nbottom: %d\n", PLAY_AREA.top, PLAY_AREA.bottom);
 }
 
 void DrawCharacter(HWND hWnd, HDC device_context, PAINTSTRUCT paint_info)
 {
     //Draw character
-    int size_offset_x = CURSOR_SIZE_X / 2;
-    int size_offset_y = CURSOR_SIZE_Y / 2;
-    for (int x = character.x - size_offset_x; x <= character.x + size_offset_x; x++) {
-        for (int y = character.y - size_offset_y; y <= character.y + size_offset_y; y++) {
-            SetPixel(device_context, x, y, RGB(255, 0, 0));
-            // printf("(%d, %d)", x, y);
-        }
-    }
+    int size_offset_x = CHARACTER_SIZE_X / 2;
+    int size_offset_y = CHARACTER_SIZE_Y / 2;
+
+    HGDIOBJ original = NULL;
+    original = SelectObject(device_context, GetStockObject(DC_BRUSH));
+    SelectObject(device_context, GetStockObject(BLACK_BRUSH));
+
+    Rectangle(device_context, character.x - size_offset_x, character.y - size_offset_y, character.x + size_offset_x, character.y + size_offset_y);
+
+    SelectObject(device_context, original);
+
+    CHARACTER_RECT.left = character.x - size_offset_x;
+    CHARACTER_RECT.right = character.x + size_offset_x;
+    CHARACTER_RECT.top = character.y - size_offset_y;
+    CHARACTER_RECT.bottom = character.y + size_offset_y;
+
+    printf("left: %d\nright: %d\ntop: %d\nbottom: %d\n", CHARACTER_RECT.left, CHARACTER_RECT.right, CHARACTER_RECT.top, CHARACTER_RECT.bottom);
+
+    // printf("(%d, %d)", x, y);
 }
