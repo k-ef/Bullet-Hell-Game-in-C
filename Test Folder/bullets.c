@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <time.h>
+#include <math.h>
 
 //HMENU table for window message processing
 #define HMENU_MAINWINDOW 1
@@ -21,6 +22,7 @@ typedef struct bullet_tag {
     uint32_t x1, x2;
     uint32_t y1, y2;
     uint32_t thickness;
+    int length;
     int speed;
     int dx, dy;
 } bullet_struct;
@@ -32,8 +34,9 @@ bool KEYBOARD[256] = {0};
 RECT CHARACTER_RECT;
 RECT PLAY_AREA;
 bool MOVED = false;
-bullet_struct bullets[20]; //holder of bullets
+bullet_struct *bullets[20]; //holder of bullets
 const int SPEED = 3;
+uint32_t BULLET_COUNT = 0;
 
 //Function prototypes
 LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -41,6 +44,7 @@ void DrawBackground(HWND hWnd, HDC device_context, PAINTSTRUCT paint_info);
 void InitCharacter(HWND hWnd);
 void DrawCharacter(HWND hWnd, HDC device_context, PAINTSTRUCT paint_info);
 bullet_struct * CreateBullet(HWND hWnd);
+void DrawBullet(HWND hWnd, HDC device_context, PAINTSTRUCT paint_info);
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR nCmdLine, int nCmdShow) 
 {    
@@ -106,6 +110,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR nCmdLine, 
         }   
 
         // printf("(%d, %d)", character.x, character.y);
+        if (BULLET_COUNT <= 20) {
+            bullet_struct *temp_bullet = CreateBullet(hwnd_MainWindow);
+            bullets[BULLET_COUNT - 1] = temp_bullet;
+            printf("Addition of bullet to array successful!\n");
+        }
 
         InvalidateRect(hwnd_MainWindow, &CHARACTER_RECT, FALSE);
         UpdateWindow(hwnd_MainWindow);
@@ -131,6 +140,7 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
                 DrawBackground(hWnd, device_context, paint_info);
                 MOVED = false;
             }
+            DrawBullet(hWnd, device_context, paint_info);
             DrawCharacter(hWnd, device_context, paint_info);
             EndPaint(hWnd, &paint_info);
         } break;
@@ -172,7 +182,8 @@ void DrawBackground(HWND hWnd, HDC device_context, PAINTSTRUCT paint_info)
     original = SelectObject(device_context, GetStockObject(DC_BRUSH));
     SelectObject(device_context, GetStockObject(WHITE_BRUSH));
     SelectObject(device_context, GetStockObject(WHITE_PEN));
-    Rectangle(device_context, CHARACTER_RECT.left, CHARACTER_RECT.top, CHARACTER_RECT.right, CHARACTER_RECT.bottom);
+    // Rectangle(device_context, CHARACTER_RECT.left, CHARACTER_RECT.top, CHARACTER_RECT.right, CHARACTER_RECT.bottom);
+    Rectangle(device_context, PLAY_AREA.left, PLAY_AREA.top, PLAY_AREA.right, PLAY_AREA.bottom);
     SelectObject(device_context, original);
 }
 
@@ -206,7 +217,7 @@ void DrawCharacter(HWND hWnd, HDC device_context, PAINTSTRUCT paint_info)
     CHARACTER_RECT.top = character.y - size_offset_y;
     CHARACTER_RECT.bottom = character.y + size_offset_y;
 
-    printf("left: %d\nright: %d\ntop: %d\nbottom: %d\n", CHARACTER_RECT.left, CHARACTER_RECT.right, CHARACTER_RECT.top, CHARACTER_RECT.bottom);
+    // printf("left: %d\nright: %d\ntop: %d\nbottom: %d\n", CHARACTER_RECT.left, CHARACTER_RECT.right, CHARACTER_RECT.top, CHARACTER_RECT.bottom);
 
     // printf("(%d, %d)", x, y);
 }
@@ -217,13 +228,50 @@ bullet_struct * CreateBullet(HWND hWnd)
 
     bullet_struct *bullet = malloc(sizeof(bullet_struct));
 
+    if (bullet == NULL) {
+        printf("Cannot allocate space for bullets\n");
+        return (bullet_struct *)-1;
+    }
+
+    //update global bullet count
+    BULLET_COUNT++;
+
+    //x1, y1
     bullet->x1 = rand() % PLAY_AREA.right + 1;
     
     int random_number = rand();
     if (bullet->x1 > 0 && bullet->x1 < PLAY_AREA.right) {
         bullet->y1 = (random_number & 1) ? 0 : PLAY_AREA.right;
     } else bullet->y1 = random_number % PLAY_AREA.bottom + 1;
+    
+    //x2, y2
+    bullet->x2 = character.x;
+    bullet->y2 = character.y;
 
+    //dx, dy
     bullet->dx = bullet->x1 - character.x;
     bullet->dy = bullet->y1 - character.y;
+
+    //length;
+    bullet->length = 4;
+
+    //speed
+    bullet->speed = 1;
+
+    //thickness
+    bullet->thickness = 1;
+
+    printf("Creation of bullet successful!\n");
+    return bullet;
+}
+
+void DrawBullet(HWND hWnd, HDC device_context, PAINTSTRUCT paint_info)
+{
+    HGDIOBJ original = NULL;
+    for (int i = 0; i < BULLET_COUNT; i++) {
+        MoveToEx(device_context, bullets[i]->x1, bullets[i]->y1, NULL);
+
+        //FIX THIS
+        LineTo(device_context, (bullets[i]->x2) / 2, (bullets[i]->y2) / 2);
+    }
 }
