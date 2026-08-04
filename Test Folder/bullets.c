@@ -19,12 +19,12 @@ struct position {
 } character = {0};
 
 typedef struct bullet_tag {
-    uint32_t x1, x2;
-    uint32_t y1, y2;
+    double x1, x2;
+    double y1, y2;
     uint32_t thickness;
     int length;
     int speed;
-    int dx, dy;
+    double dx, dy;
 } bullet_struct;
 
 //Global variables
@@ -35,8 +35,9 @@ RECT CHARACTER_RECT;
 RECT PLAY_AREA;
 bool MOVED = false;
 bullet_struct *bullets[20]; //holder of bullets
-const int SPEED = 3;
+const int CHARACTER_SPEED = 3;
 uint32_t BULLET_COUNT = 0;
+bool RAN = 0;
 
 //Function prototypes
 LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -48,6 +49,8 @@ void DrawBullet(HWND hWnd, HDC device_context, PAINTSTRUCT paint_info);
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR nCmdLine, int nCmdShow) 
 {    
+    srand(time(NULL));
+
     WNDCLASS MW = {0};
     const wchar_t MAIN_WINDOW_CLASSNAME[] = L"Main Window";
 
@@ -80,6 +83,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR nCmdLine, 
 
     //Main message loop
     while (true) {
+        time_t last_time, current_time;
+        last_time = time(NULL);
+
         MSG msg = {0};
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
             if (msg.message == WM_QUIT) {
@@ -93,30 +99,40 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR nCmdLine, 
         int size_offset_x = CHARACTER_SIZE_X / 2;
         int size_offset_y = CHARACTER_SIZE_Y / 2;
         if (KEYBOARD[VK_RIGHT] && ((int)character.x + 1 + size_offset_x) <= PLAY_AREA.right) {
-           character.x++; 
+           character.x += CHARACTER_SPEED; 
            MOVED = true;
         }  
         if (KEYBOARD[VK_LEFT]  && ((int)character.x - 1 - size_offset_x) >= PLAY_AREA.left) {
-            character.x--;
+            character.x -= CHARACTER_SPEED;
             MOVED = true;
         } 
         if (KEYBOARD[VK_DOWN]  && ((int)character.y + 1 + size_offset_y) <= PLAY_AREA.bottom) {
-            character.y++;
+            character.y += CHARACTER_SPEED;
             MOVED = true;
         } 
         if (KEYBOARD[VK_UP]    && ((int)character.y - 1 - size_offset_y) >= PLAY_AREA.top) {
-            character.y--;
+            character.y -= CHARACTER_SPEED;
             MOVED = true;
         }   
 
-        // printf("(%d, %d)", character.x, character.y);
-        if (BULLET_COUNT <= 20) {
-            bullet_struct *temp_bullet = CreateBullet(hwnd_MainWindow);
-            bullets[BULLET_COUNT - 1] = temp_bullet;
-            printf("Addition of bullet to array successful!\n");
+        current_time = time(NULL);
+        if (current_time - last_time >= 1) {
+            if (BULLET_COUNT < 20) {
+                bullet_struct *temp_bullet = CreateBullet(hwnd_MainWindow);
+                bullets[BULLET_COUNT] = temp_bullet;
+                printf("bullet count: %d", BULLET_COUNT);
+                BULLET_COUNT++;
+                printf("Addition of bullet to array successful!\n");
+            }
         }
-
-        InvalidateRect(hwnd_MainWindow, &CHARACTER_RECT, FALSE);
+        // if (BULLET_COUNT == 19 && !RAN) {
+        //     for (int i = 0; i < BULLET_COUNT; i++) {
+        //         printf("start (%d, %d)\nend: (%d, %d)\n", bullets[i]->x1, bullets[i]->y1, bullets[i]->x2, bullets[i]->y2);
+        //     }
+        //     RAN = true;
+        // }
+        
+        InvalidateRect(hwnd_MainWindow, &PLAY_AREA, FALSE);
         UpdateWindow(hwnd_MainWindow);
         Sleep(1);
     }
@@ -136,10 +152,7 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
         case WM_PAINT: {
             PAINTSTRUCT paint_info;
             HDC device_context = BeginPaint(hWnd, &paint_info);
-            if (MOVED) {
-                DrawBackground(hWnd, device_context, paint_info);
-                MOVED = false;
-            }
+            DrawBackground(hWnd, device_context, paint_info);
             DrawBullet(hWnd, device_context, paint_info);
             DrawCharacter(hWnd, device_context, paint_info);
             EndPaint(hWnd, &paint_info);
@@ -224,8 +237,6 @@ void DrawCharacter(HWND hWnd, HDC device_context, PAINTSTRUCT paint_info)
 
 bullet_struct * CreateBullet(HWND hWnd) 
 {
-    srand(time(NULL));
-
     bullet_struct *bullet = malloc(sizeof(bullet_struct));
 
     if (bullet == NULL) {
@@ -233,24 +244,24 @@ bullet_struct * CreateBullet(HWND hWnd)
         return (bullet_struct *)-1;
     }
 
-    //update global bullet count
-    BULLET_COUNT++;
-
     //x1, y1
-    bullet->x1 = rand() % PLAY_AREA.right + 1;
+    bullet->x1 = rand() % PLAY_AREA.right;
     
     int random_number = rand();
     if (bullet->x1 > 0 && bullet->x1 < PLAY_AREA.right) {
-        bullet->y1 = (random_number & 1) ? 0 : PLAY_AREA.right;
-    } else bullet->y1 = random_number % PLAY_AREA.bottom + 1;
+        bullet->y1 = (random_number & 1) ? 0 : PLAY_AREA.bottom;
+    } else bullet->y1 = random_number % PLAY_AREA.bottom;
     
     //x2, y2
     bullet->x2 = character.x;
     bullet->y2 = character.y;
 
     //dx, dy
-    bullet->dx = bullet->x1 - character.x;
-    bullet->dy = bullet->y1 - character.y;
+    double dx = character.x - bullet->x1;
+    double dy = character.y - bullet->y1;
+    double len = sqrt(pow(dx, 2) + pow(dy, 2));
+    bullet->dx = 15 * (dx / len);
+    bullet->dy = 15 * (dy / len);
 
     //length;
     bullet->length = 4;
@@ -268,10 +279,19 @@ bullet_struct * CreateBullet(HWND hWnd)
 void DrawBullet(HWND hWnd, HDC device_context, PAINTSTRUCT paint_info)
 {
     HGDIOBJ original = NULL;
+    original = SelectObject(device_context, GetStockObject(DC_PEN));
+    SelectObject(device_context, GetStockObject(BLACK_PEN));
     for (int i = 0; i < BULLET_COUNT; i++) {
-        MoveToEx(device_context, bullets[i]->x1, bullets[i]->y1, NULL);
+        MoveToEx(device_context, 
+            bullets[i]->x1, bullets[i]->y1, 
+            NULL);
 
-        //FIX THIS
-        LineTo(device_context, (bullets[i]->x2) / 2, (bullets[i]->y2) / 2);
+        LineTo(device_context, 
+            bullets[i]->x1 + bullets[i]->dx, 
+            bullets[i]->y1 + bullets[i]->dy);
+
+        bullets[i]->x1 += bullets[i]->dx;
+        bullets[i]->y1 += bullets[i]->dy;
     }
+    SelectObject(device_context, original);
 }
