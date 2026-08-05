@@ -11,6 +11,7 @@
 
 //HMENU table for window message processing
 #define HMENU_MAINWINDOW 1
+#define MAX_BULLETS 200
 
 //Structs
 struct position {
@@ -23,7 +24,7 @@ typedef struct bullet_tag {
     double y1, y2;
     uint32_t thickness;
     int length;
-    int speed;
+    double speed;
     double dx, dy;
 } bullet_struct;
 
@@ -34,7 +35,7 @@ bool KEYBOARD[256] = {0};
 RECT CHARACTER_RECT;
 RECT PLAY_AREA;
 bool MOVED = false;
-bullet_struct *bullets[20]; //holder of bullets
+bullet_struct *bullets[MAX_BULLETS] = {NULL}; //holder of bullets
 const int CHARACTER_SPEED = 3;
 uint32_t BULLET_COUNT = 0;
 bool RAN = 0;
@@ -46,6 +47,7 @@ void InitCharacter(HWND hWnd);
 void DrawCharacter(HWND hWnd, HDC device_context, PAINTSTRUCT paint_info);
 bullet_struct * CreateBullet(HWND hWnd);
 void DrawBullet(HWND hWnd, HDC device_context, PAINTSTRUCT paint_info);
+void DestroyBullet(HWND hWnd, int index);
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR nCmdLine, int nCmdShow) 
 {    
@@ -81,11 +83,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR nCmdLine, 
         return -1;
     }
 
+    clock_t start, end;
+    double elapsed, prev_elapsed = 0.0;
+    start = clock();
+
     //Main message loop
     while (true) {
-        time_t last_time, current_time;
-        last_time = time(NULL);
-
         MSG msg = {0};
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
             if (msg.message == WM_QUIT) {
@@ -115,21 +118,29 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR nCmdLine, 
             MOVED = true;
         }   
 
-        current_time = time(NULL);
-        if (current_time - last_time >= 1) {
-            if (BULLET_COUNT < 20) {
+        //Add Bullets
+        end = clock();
+        elapsed = (double)(end - start)/CLOCKS_PER_SEC;
+        if (elapsed >= prev_elapsed + 0.5) {
+            if (BULLET_COUNT < MAX_BULLETS) {
                 bullet_struct *temp_bullet = CreateBullet(hwnd_MainWindow);
                 bullets[BULLET_COUNT] = temp_bullet;
-                printf("bullet count: %d", BULLET_COUNT);
+                printf("bullet count: %d\n", BULLET_COUNT);
                 BULLET_COUNT++;
                 printf("Addition of bullet to array successful!\n");
+                printf("\n");
             }
+
+            prev_elapsed = elapsed;
         }
-        // if (BULLET_COUNT == 19 && !RAN) {
-        //     for (int i = 0; i < BULLET_COUNT; i++) {
-        //         printf("start (%d, %d)\nend: (%d, %d)\n", bullets[i]->x1, bullets[i]->y1, bullets[i]->x2, bullets[i]->y2);
+
+        //Check if hit
+        // for (int i = 0; i < BULLET_COUNT; i++) {
+        //     if (bullets[i] == NULL) {
+        //         continue;
         //     }
-        //     RAN = true;
+
+        //     if (character.x >)
         // }
         
         InvalidateRect(hwnd_MainWindow, &PLAY_AREA, FALSE);
@@ -282,6 +293,10 @@ void DrawBullet(HWND hWnd, HDC device_context, PAINTSTRUCT paint_info)
     original = SelectObject(device_context, GetStockObject(DC_PEN));
     SelectObject(device_context, GetStockObject(BLACK_PEN));
     for (int i = 0; i < BULLET_COUNT; i++) {
+        if (bullets[i] == NULL) {
+            continue;
+        }
+
         MoveToEx(device_context, 
             bullets[i]->x1, bullets[i]->y1, 
             NULL);
@@ -292,6 +307,15 @@ void DrawBullet(HWND hWnd, HDC device_context, PAINTSTRUCT paint_info)
 
         bullets[i]->x1 += bullets[i]->dx;
         bullets[i]->y1 += bullets[i]->dy;
+        
+        if (bullets[i]->x1 < 0 || bullets[i]->x1 > PLAY_AREA.right || bullets[i]->y1 < 0 || bullets[i]->y1 > PLAY_AREA.bottom) {
+            DestroyBullet(hWnd, i);
+        }
     }
     SelectObject(device_context, original);
+}
+
+void DestroyBullet(HWND hWnd, int index)
+{
+    bullets[index] = NULL;
 }
