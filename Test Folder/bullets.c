@@ -28,6 +28,17 @@ typedef struct bullet_tag {
     double dx, dy;
 } bullet_struct;
 
+typedef struct point_tag {
+    double x;
+    double y;
+} point_struct;
+
+typedef struct line_segment_tag {
+    point_struct p1;
+    point_struct p2;
+} line_segment_struct;
+
+
 //Global variables
 uint32_t CHARACTER_SIZE_X = 7;
 uint32_t CHARACTER_SIZE_Y = 7;
@@ -48,6 +59,10 @@ void DrawCharacter(HWND hWnd, HDC device_context, PAINTSTRUCT paint_info);
 bullet_struct * CreateBullet(HWND hWnd);
 void DrawBullet(HWND hWnd, HDC device_context, PAINTSTRUCT paint_info);
 void DestroyBullet(HWND hWnd, int index);
+bool DoIntersect(line_segment_struct line1, line_segment_struct line2);
+bool ValidProjection(double a, double b, double c, double d);
+double Orientation(point_struct p1, point_struct p2, point_struct p3);
+void Swap(double *a, double *b);
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR nCmdLine, int nCmdShow) 
 {    
@@ -86,6 +101,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR nCmdLine, 
     clock_t start, end;
     double elapsed, prev_elapsed = 0.0;
     start = clock();
+    printf("USE ARROW KEYS TO MOVE\n");
+    printf("TRY NOT TO GET HIT BY THE BULLETS\n");
 
     //Main message loop
     while (true) {
@@ -125,9 +142,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR nCmdLine, 
             if (BULLET_COUNT < MAX_BULLETS) {
                 bullet_struct *temp_bullet = CreateBullet(hwnd_MainWindow);
                 bullets[BULLET_COUNT] = temp_bullet;
-                printf("bullet count: %d\n", BULLET_COUNT);
+                // printf("bullet count: %d\n", BULLET_COUNT);
                 BULLET_COUNT++;
-                printf("Addition of bullet to array successful!\n");
+                // printf("Addition of bullet to array successful!\n");
                 printf("\n");
             }
 
@@ -135,13 +152,22 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR nCmdLine, 
         }
 
         //Check if hit
-        // for (int i = 0; i < BULLET_COUNT; i++) {
-        //     if (bullets[i] == NULL) {
-        //         continue;
-        //     }
+        for (int i = 0; i < BULLET_COUNT; i++) {
+            if (bullets[i] == NULL) {
+                continue;
+            }
 
-        //     if (character.x >)
-        // }
+            line_segment_struct bullet_line = {{bullets[i]->x1, bullets[i]->y1}, {bullets[i]->x1 + bullets[i]->dx, bullets[i]->y1 + bullets[i]->dy}};
+            line_segment_struct character_top = {{CHARACTER_RECT.left, CHARACTER_RECT.top}, {CHARACTER_RECT.right, CHARACTER_RECT.top}};
+            line_segment_struct character_right = {{CHARACTER_RECT.right, CHARACTER_RECT.top}, {CHARACTER_RECT.right, CHARACTER_RECT.bottom}};
+            line_segment_struct character_bottom = {{CHARACTER_RECT.left, CHARACTER_RECT.bottom}, {CHARACTER_RECT.right, CHARACTER_RECT.bottom}};
+            line_segment_struct character_left = {{CHARACTER_RECT.left, CHARACTER_RECT.top}, {CHARACTER_RECT.left, CHARACTER_RECT.bottom}};
+
+            if (DoIntersect(bullet_line, character_top) || DoIntersect(bullet_line, character_right) || DoIntersect(bullet_line, character_bottom) || DoIntersect(bullet_line, character_left)) {
+                printf("Hit!");
+            }
+            
+        }
         
         InvalidateRect(hwnd_MainWindow, &PLAY_AREA, FALSE);
         UpdateWindow(hwnd_MainWindow);
@@ -283,7 +309,7 @@ bullet_struct * CreateBullet(HWND hWnd)
     //thickness
     bullet->thickness = 1;
 
-    printf("Creation of bullet successful!\n");
+    // printf("Creation of bullet successful!\n");
     return bullet;
 }
 
@@ -318,4 +344,53 @@ void DrawBullet(HWND hWnd, HDC device_context, PAINTSTRUCT paint_info)
 void DestroyBullet(HWND hWnd, int index)
 {
     bullets[index] = NULL;
+}
+
+bool DoIntersect(line_segment_struct line1, line_segment_struct line2)
+{
+    double o1 = Orientation(line1.p1, line1.p2, line2.p1);
+    double o2 = Orientation(line1.p1, line1.p2, line2.p2);
+    double o3 = Orientation(line2.p1, line2.p2, line1.p1);
+    double o4 = Orientation(line2.p1, line2.p2, line1.p2);
+
+    if (o1 != o2 && o3 != o4) {
+        return true;
+    }
+    if (o1 == 0 && o4 == 0) {
+        if (ValidProjection(line1.p1.x, line1.p2.x, line2.p1.x, line2.p2.x) && ValidProjection(line1.p1.y, line1.p2.y, line2.p1.y, line2.p2.y)) {
+            return true;
+        }
+    }
+
+    return false;
+
+}
+
+bool ValidProjection(double a, double b, double c, double d)
+{
+    if (a > b) {
+        Swap(&a, &b);
+    }
+    if (c > d) {
+        Swap(&c, &d);
+    }
+    return max(a, c) <= min(b, d);
+}
+
+double Orientation(point_struct p1, point_struct p2, point_struct p3)
+{
+    double val = (p2.y - p1.y) * (p3.x - p2.x) - (p2.x - p1.x) * (p3.y - p2.y);
+    
+    if (val == 0) {
+        return 0;
+    }
+    
+    return (val > 0) ? 1 : 2;
+}
+
+void Swap(double *a, double *b)
+{
+    double temp = *a;
+    *a = *b;
+    *b = temp;
 }
